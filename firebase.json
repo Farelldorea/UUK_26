@@ -1,0 +1,28 @@
+{
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "inventaris-lab-3c3d2",
+          "appId": "1:194961501007:android:41e815d85092faae07333a",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "inventaris-lab-3c3d2",
+          "configurations": {
+            "android": "1:194961501007:android:41e815d85092faae07333a",
+            "ios": "1:194961501007:ios:51533dd3a63af49607333a",
+            "macos": "1:194961501007:ios:51533dd3a63af49607333a",
+            "web": "1:194961501007:web:a1ddafe967c739b107333a",
+            "windows": "1:194961501007:web:e1f4d6ff919a712507333a"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,119 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    match /items/{itemId} {
+      allow read: if signedIn();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin()
+        || (
+          signedIn()
+          && resource.data.status == 'Available'
+          && request.resource.data.status == 'Borrowed'
+          && request.resource.data.borrower_uid == request.auth.uid
+          && getAfter(
+            /databases/$(database)/documents/users/$(request.auth.uid)/borrowings/$(request.resource.data.borrow_id)
+          ).data.item_id == itemId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'status',
+            'borrower_uid',
+            'borrower_name',
+            'borrower_kelas',
+            'purpose',
+            'borrow_id',
+            'borrow_date',
+            'due_date'
+          ])
+        )
+        || (
+          signedIn()
+          && resource.data.status == 'Borrowed'
+          && resource.data.borrower_uid == request.auth.uid
+          && request.resource.data.status == 'Available'
+          && request.resource.data.borrower_uid == null
+          && request.resource.data.borrower_name == null
+          && request.resource.data.borrower_kelas == null
+          && request.resource.data.purpose == null
+          && request.resource.data.borrow_id == null
+          && request.resource.data.borrow_date == null
+          && request.resource.data.due_date == null
+          && getAfter(
+            /databases/$(database)/documents/users/$(request.auth.uid)/borrowings/$(resource.data.borrow_id)
+          ).data.returned_at is timestamp
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'status',
+            'borrower_uid',
+            'borrower_name',
+            'borrower_kelas',
+            'purpose',
+            'borrow_id',
+            'borrow_date',
+            'due_date'
+          ])
+        );
+    }
+
+    match /users/{userId} {
+      allow read: if signedIn() && (request.auth.uid == userId || isAdmin());
+      allow create: if signedIn()
+        && request.auth.uid == userId
+        && request.resource.data.user_id == userId
+        && request.resource.data.role in ['user', 'pending_admin'];
+      allow update: if isAdmin()
+        || (
+          signedIn()
+          && request.auth.uid == userId
+          && request.resource.data.user_id == resource.data.user_id
+          && request.resource.data.role == resource.data.role
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'name',
+            'kelas',
+            'foto'
+          ])
+        );
+      allow delete: if isAdmin();
+
+      match /borrowings/{borrowId} {
+        allow read: if signedIn() && (request.auth.uid == userId || isAdmin());
+        allow create: if signedIn()
+          && request.auth.uid == userId
+          && request.resource.data.borrow_id == borrowId
+          && getAfter(
+            /databases/$(database)/documents/items/$(request.resource.data.item_id)
+          ).data.status == 'Borrowed'
+          && getAfter(
+            /databases/$(database)/documents/items/$(request.resource.data.item_id)
+          ).data.borrower_uid == userId
+          && getAfter(
+            /databases/$(database)/documents/items/$(request.resource.data.item_id)
+          ).data.borrow_id == borrowId;
+        allow update: if isAdmin()
+          || (
+            signedIn()
+            && request.auth.uid == userId
+            && resource.data.item_id is string
+            && resource.data.returned_at == null
+            && request.resource.data.returned_at is timestamp
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'returned_at'
+            ])
+            && getAfter(
+              /databases/$(database)/documents/items/$(resource.data.item_id)
+            ).data.status == 'Available'
+            && getAfter(
+              /databases/$(database)/documents/items/$(resource.data.item_id)
+            ).data.borrower_uid == null
+          );
+        allow delete: if isAdmin();
+      }
+    }
+  }
+}
